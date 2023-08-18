@@ -72,7 +72,7 @@ resolve_port()
 		;;
 	esac
 
-	lookup=$(/usr/bin/awk -F'[/[:space:]]+' "/^${port}[\t ]+([0-9]+)\/${proto}/ { print \$2 ; exit 0 }" /etc/services | /usr/bin/head -1)
+	lookup=$(/usr/bin/awk -F'[/[:space:]]+' "/^${port}[\t ]+([0-9]+)\/${proto}/ { print \$2 ; exit 0 }" /etc/services)
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown service ${port}"
