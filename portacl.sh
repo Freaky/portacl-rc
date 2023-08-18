@@ -158,16 +158,23 @@ generate_ruleset()
 	generate_ruleset_for group
 }
 
-warn_existing_rules()
+warn_sysctl_overrides()
 {
-	local f
+
+	local f overrides oid
 
 	for f in /etc/sysctl.conf /etc/sysctl.conf.local
 	do
-		if [ -r ${f} ] &&  grep -qe '^[ ]*security\.mac\.portacl\.rules' "${f}"
-		then
-			warn "overriding existing portacl ruleset in $f"
+		if ! [ -r "${f}" ]; then
+			continue
 		fi
+
+		overrides="$(/usr/bin/awk -F= 'BEGIN { ORS=" " } $1 ~ /^(security\.mac\.portacl\.|net\.inet\.ip\.portrange\.reserved)/ { print $1 }' "${f}")"
+
+		for oid in $overrides
+		do
+			warn "overriding ${oid} in ${f}"
+		done
 	done
 }
 
@@ -209,7 +216,7 @@ portacl_start()
 {
 	local rules port_high
 
-	warn_existing_rules
+	warn_sysctl_overrides
 
 	rules="$(generate_ruleset | join_uniq)"
 
