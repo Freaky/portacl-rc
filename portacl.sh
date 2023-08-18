@@ -3,8 +3,8 @@
 # $FreeBSD$
 
 # PROVIDE: portacl
-# REQUIRE: SERVERS
-# BEFORE: LOGIN
+# REQUIRE: FILESYSTEMS
+# BEFORE: SERVERS
 # KEYWORD: nojail
 
 . /etc/rc.subr
@@ -19,10 +19,10 @@ reload_cmd="portacl_start"
 stop_cmd="portacl_stop"
 required_modules="mac_portacl"
 
-: ${portacl_enable:="NO"}
-: ${portacl_users:=""}
-: ${portacl_groups:=""}
-: ${portacl_additional_rules:=""}
+: "${portacl_enable:="NO"}"
+: "${portacl_users:=""}"
+: "${portacl_groups:=""}"
+: "${portacl_additional_rules:=""}"
 
 # If the value is numeric, echo it and return true
 echo_numeric()
@@ -38,6 +38,21 @@ echo_numeric()
 	esac
 }
 
+split_comma()
+{
+	local rule
+	local IFS=','
+	for rule in $1
+	do
+		echo "${rule}"
+	done
+}
+
+join_uniq()
+{
+	sort -ut : | paste -s -d ',' -
+}
+
 resolve_port()
 {
 	local port proto lookup
@@ -47,9 +62,17 @@ resolve_port()
 
 	echo_numeric "${port}" && return
 
-	# XXX: ensure port is ^[a-z0-9]$
+	# ensure port is ^[a-z0-9]$
+	case "${port}" in
+	''|*[!a-z0-9]*)
+		warn "invalid service name: ${port}"
+		return 1
+		;;
+	*)
+		;;
+	esac
 
-	lookup=$(/usr/bin/awk -F'[/[:space:]]+' "/^${port}[\t ]+([0-9]+)\/${proto}/ { print \$2 }" /etc/services | /usr/bin/head -1)
+	lookup=$(/usr/bin/awk -F'[/[:space:]]+' "/^${port}[\t ]+([0-9]+)\/${proto}/ { print \$2 ; exit 0 }" /etc/services | /usr/bin/head -1)
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown service ${port}"
@@ -119,20 +142,17 @@ generate_ruleset_for()
 			do
 				port=$(resolve_port "${port}" "${proto}")
 				[ -z "${port}" ] && continue
-				rules="${rules}${key}:${id}:${proto}:${port},"
+				echo "${key}:${id}:${proto}:${port}"
 			done
 		done
 	done
-
-	echo "${rules%,}"
 }
 
 generate_ruleset()
 {
-	local rules
-
-	rules="$(generate_ruleset_for user),$(generate_ruleset_for group),${portacl_additional_rules}"
-	echo "${rules%,}"
+	split_comma "${portacl_additional_rules}"
+	generate_ruleset_for user
+	generate_ruleset_for group
 }
 
 warn_existing_rules()
@@ -141,11 +161,9 @@ warn_existing_rules()
 
 	for f in /etc/sysctl.conf /etc/sysctl.conf.local
 	do
-		if [ -r ${f} ]; then
-			if grep -qe '^[ ]*security\.mac\.portacl\.rules' "${f}"
-			then
-				warn "existing portacl ruleset in $f"
-			fi
+		if [ -r ${f} ] &&  grep -qe '^[ ]*security\.mac\.portacl\.rules' "${f}"
+		then
+			warn "overriding existing portacl ruleset in $f"
 		fi
 	done
 }
@@ -156,12 +174,24 @@ portacl_start()
 
 	warn_existing_rules
 
-	rules="$(generate_ruleset)"
-	echo ${rules}
+	rules="$(generate_ruleset | join_uniq)"
+
+	if ! sysctl "security.mac.portacl.rules=${rules}" ; then
+		warn "Failed to set mac_portacl rules"
+		return 1
+	fi
+
+	sysctl security.mac.portacl.port_high=1023
+	sysctl security.mac.portacl.enabled=1
+	sysctl net.inet.ip.portrange.reservedlow=0
+	sysctl net.inet.ip.portrange.reservedhigh=0
 }
 
 portacl_stop()
 {
+	sysctl net.inet.ip.portrange.reservedlow=0
+	sysctl net.inet.ip.portrange.reservedhigh=1023
+	sysctl security.mac.portacl.enabled=0
 }
 
 load_rc_config $name
