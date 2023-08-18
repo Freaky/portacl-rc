@@ -20,6 +20,9 @@ stop_cmd="portacl_stop"
 required_modules="mac_portacl"
 
 : "${portacl_enable:="NO"}"
+: "${portacl_port_high:="1023"}"
+: "${portacl_suser_exempt:="YES"}"
+: "${portacl_autoport_exempt:="YES"}"
 : "${portacl_users:=""}"
 : "${portacl_groups:=""}"
 : "${portacl_additional_rules:=""}"
@@ -170,6 +173,8 @@ warn_existing_rules()
 
 set_sysctl()
 {
+	debug "set_sysctl: ${1}=${2}"
+
 	if ! sysctl "${1}=${2}" >/dev/null; then
 		warn "failed to set sysctl ${1}"
 		return 1
@@ -177,16 +182,45 @@ set_sysctl()
 	return 0
 }
 
+# convert the checkyesno return value to a literal 1 or 0
+# we could do with inverting the fallback to assume-yes
+checkyesno_integer()
+{
+	if checkyesno "${1}"; then
+		echo 1
+	else
+		echo 0
+	fi
+}
+
+# echo the value of the variable if it is numeric
+# or print a warning and echo the value of the second argument
+integer_or_default()
+{
+	local value
+
+	eval "value=\$${1}"
+	echo_numeric "${value}" && return 0
+	warn "\$${1} is not set properly, reverting to default ${2} - see rc.conf(5)"
+	echo "${2}"
+}
+
 portacl_start()
 {
-	local rules
+	local rules port_high
 
 	warn_existing_rules
 
 	rules="$(generate_ruleset | join_uniq)"
 
+	port_high="$(integer_or_default portacl_port_high 1023)"
+
 	set_sysctl security.mac.portacl.rules "${rules}" &&
-	set_sysctl security.mac.portacl.port_high 1023 &&
+	set_sysctl security.mac.portacl.suser_exempt \
+		"$(checkyesno_integer "portacl_suser_exempt")" &&
+	set_sysctl security.mac.portacl.autoport_exempt \
+		"$(checkyesno_integer "portacl_autoport_exempt")" &&
+	set_sysctl security.mac.portacl.port_high "${port_high}" &&
 	set_sysctl security.mac.portacl.enabled 1 &&
 	set_sysctl net.inet.ip.portrange.reservedlow 0 &&
 	set_sysctl net.inet.ip.portrange.reservedhigh 0
