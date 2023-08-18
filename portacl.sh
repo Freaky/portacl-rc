@@ -85,7 +85,7 @@ resolve_port()
 resolve_id() {
 	local id flag kind lookup
 
-	kind=$1 # todo: map -u/-g to user/group
+	kind=$1
 	id=$2
 
 	case "${kind}" in
