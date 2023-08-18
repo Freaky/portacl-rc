@@ -168,6 +168,15 @@ warn_existing_rules()
 	done
 }
 
+set_sysctl()
+{
+	if ! sysctl "${1}=${2}" >/dev/null; then
+		warn "failed to set sysctl ${1}"
+		return 1
+	fi
+	return 0
+}
+
 portacl_start()
 {
 	local rules
@@ -176,22 +185,18 @@ portacl_start()
 
 	rules="$(generate_ruleset | join_uniq)"
 
-	if ! sysctl "security.mac.portacl.rules=${rules}" ; then
-		warn "Failed to set mac_portacl rules"
-		return 1
-	fi
-
-	sysctl security.mac.portacl.port_high=1023
-	sysctl security.mac.portacl.enabled=1
-	sysctl net.inet.ip.portrange.reservedlow=0
-	sysctl net.inet.ip.portrange.reservedhigh=0
+	set_sysctl security.mac.portacl.rules "${rules}" &&
+	set_sysctl security.mac.portacl.port_high 1023 &&
+	set_sysctl security.mac.portacl.enabled 1 &&
+	set_sysctl net.inet.ip.portrange.reservedlow 0 &&
+	set_sysctl net.inet.ip.portrange.reservedhigh 0
 }
 
 portacl_stop()
 {
-	sysctl net.inet.ip.portrange.reservedlow=0
-	sysctl net.inet.ip.portrange.reservedhigh=1023
-	sysctl security.mac.portacl.enabled=0
+	set_sysctl net.inet.ip.portrange.reservedlow 0 &&
+	set_sysctl net.inet.ip.portrange.reservedhigh 1023 &&
+	set_sysctl security.mac.portacl.enabled 0
 }
 
 load_rc_config $name
