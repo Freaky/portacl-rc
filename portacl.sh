@@ -73,9 +73,8 @@ resolve_port()
 
 	echo_numeric "${port}" && return
 
-	# ensure port is ^[a-z0-9]$
 	case "${port}" in
-	''|*[!a-z0-9]*)
+	''|*[!a-z0-9_-]*)
 		warn "invalid service name: ${port}"
 		return 1
 		;;
