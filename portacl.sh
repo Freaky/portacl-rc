@@ -91,17 +91,11 @@ resolve_id() {
 	kind=$1
 	id=$2
 
-	case "${kind}" in
-	user)
+	if [ "${kind}" = "user" ]; then
 		flag="-u"
-		;;
-	group)
+	else
 		flag="-g"
-		;;
-	*)
-		warn "Not one of user or group: ${kind}"
-		return
-	esac
+	fi
 
 	echo_numeric "${id}" && return
 
@@ -117,21 +111,15 @@ resolve_id() {
 
 generate_ruleset_for()
 {
-	local kind key sid ids id rules proto ports port
-	
-	kind="${1}"
+	local key sid ids id rules proto ports port
 
-	case "${kind}" in
-	user)
+	kind=$1
+
+	if [ "${kind}" = "user" ]; then
 		key="uid"
-		;;
-	group)
+	else
 		key="gid"
-		;;
-	*)
-		warn "Not one of user or group: ${kind}"
-		return
-	esac
+	fi
 
 	eval ids="\${${name}_${kind}s}"
 	for sid in ${ids}
