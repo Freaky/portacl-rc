@@ -28,17 +28,6 @@ required_modules="mac_portacl"
 : "${portacl_groups:=""}"
 : "${portacl_additional_rules:=""}"
 
-# convert the checkyesno return value to a literal 1 or 0
-# we could do with inverting the fallback to assume-yes
-checkyesno_integer()
-{
-	if checkyesno "${1}"; then
-		echo 1
-	else
-		echo 0
-	fi
-}
-
 # echo the value of the variable if it is numeric
 # or print a warning and echo the value of the second argument
 integer_or_default()
@@ -156,9 +145,9 @@ generate_ruleset_for()
 
 generate_ruleset()
 {
-	split_comma "${portacl_additional_rules}"
 	generate_ruleset_for user
 	generate_ruleset_for group
+	[ -n "${portacl_additional_rules}" ] && split_comma "${portacl_additional_rules}"
 }
 
 portacl_check_sysctl_conf()
@@ -183,15 +172,38 @@ portacl_check_sysctl_conf()
 	done
 }
 
+# Filter argument to return only valid rules and warn on errors
+validate_ruleset()
+{
+	echo -n "${1}" | awk '
+		BEGIN { RS=","; FS=":"; sep = "" }
+		{
+			if (NF == 4 &&
+			    ($1 ~ /^(uid|gid)$/) &&
+			    ($2 ~ /^[0-9]+$/ && $2 >= 0 && $2 <= 65535) &&
+			    ($3 ~ /^(tcp|udp)$/) &&
+			    ($4 ~ /^[0-9]+$/ && $4 >= 0 && $4 <= 65535)) 
+			{
+				printf("%s%s", sep, $0)
+				sep=","
+			} else {
+				printf("WARNING: Invalid portacl rule: %s\n", $0) > "/dev/stderr"
+			}
+		}
+	'
+}
+
 portacl_start()
 {
-	local rules port_high suser_exempt autoport_exempt
+	local rules="$(generate_ruleset | sort -ut : | paste -s -d ',' -)"
+	local port_high="$(integer_or_default portacl_port_high 1023)"
+	local suser_exempt=1
+	local autoport_exempt=1
 
+	checkyesno portacl_suser_exempt || suser_exempt=0
+	checkyesno portacl_autoport_exempt || autoport_exempt=0
 
-	rules="$(generate_ruleset | sort -ut : | paste -s -d ',' -)"
-	port_high="$(integer_or_default portacl_port_high 1023)"
-	suser_exempt="$(checkyesno_integer "portacl_suser_exempt")"
-	autoport_exempt="$(checkyesno_integer "portacl_autoport_exempt")"
+	rules=$(validate_ruleset "${rules}")
 
 	${SYSCTL} security.mac.portacl.rules="${rules}" >/dev/null &&
 	${SYSCTL} security.mac.portacl.suser_exempt="${suser_exempt}" >/dev/null &&
