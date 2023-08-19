@@ -77,10 +77,9 @@ split_comma()
 # Lookup port in /etc/services if it is not numeric
 resolve_port()
 {
-	local port proto lookup
-
-	port=$1
-	proto=$2
+	local lookup
+	local port="$1"
+	local proto="$2"
 
 	echo_numeric "${port}" && return
 
@@ -109,16 +108,12 @@ resolve_port()
 }
 
 resolve_id() {
-	local id flag kind lookup
+	local lookup
+	local kind="$1"
+	local id="$2"
+	local flag="-u"
 
-	kind=$1
-	id=$2
-
-	if [ "${kind}" = "user" ]; then
-		flag="-u"
-	else
-		flag="-g"
-	fi
+	[ "${kind}" = "group" ] && flag="-g"
 
 	echo_numeric "${id}" && return
 
@@ -134,15 +129,11 @@ resolve_id() {
 
 generate_ruleset_for()
 {
-	local key sid ids id rules proto ports port
+	local id ids port ports proto rules sid
+	local kind="$1"
+	local key="uid"
 
-	kind=$1
-
-	if [ "${kind}" = "user" ]; then
-		key="uid"
-	else
-		key="gid"
-	fi
+	[ "${kind}" = "group" ] && key="gid"
 
 	eval ids="\${${name}_${kind}s}"
 	for sid in ${ids}
