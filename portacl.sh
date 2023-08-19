@@ -13,6 +13,7 @@ name="portacl"
 desc="Network port access control policy"
 rcvar="portacl_enable"
 extra_commands="reload"
+start_precmd="portacl_check_sysctl_conf"
 start_cmd="portacl_start"
 restart_cmd="portacl_start"
 reload_cmd="portacl_start"
@@ -160,9 +161,8 @@ generate_ruleset()
 	generate_ruleset_for group
 }
 
-warn_sysctl_overrides()
+portacl_check_sysctl_conf()
 {
-
 	local f overrides oid
 
 	for f in /etc/sysctl.conf /etc/sysctl.conf.local
@@ -187,7 +187,6 @@ portacl_start()
 {
 	local rules port_high suser_exempt autoport_exempt
 
-	warn_sysctl_overrides
 
 	rules="$(generate_ruleset | sort -ut : | paste -s -d ',' -)"
 	port_high="$(integer_or_default portacl_port_high 1023)"
