@@ -74,6 +74,7 @@ split_comma()
 	done
 }
 
+# Lookup port in /etc/services if it is not numeric
 resolve_port()
 {
 	local port proto lookup
@@ -93,11 +94,15 @@ resolve_port()
 		;;
 	esac
 
-	lookup=$(/usr/bin/awk -F'[/[:space:]]+' "/^${port}[\t ]+([0-9]+)\/${proto}/ { print \$2 ; exit 0 }" /etc/services)
+	lookup=$(awk -F'[/[:space:]]+' "
+		/^${port}[\t ]+([0-9]+)\/${proto}/ {
+			print \$2
+			exit 0 
+		}" /etc/services)
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown service ${port}"
-		return
+		return 1
 	fi
 
 	echo "${lookup}"
@@ -171,11 +176,14 @@ warn_sysctl_overrides()
 
 	for f in /etc/sysctl.conf /etc/sysctl.conf.local
 	do
-		if ! [ -r "${f}" ]; then
-			continue
-		fi
+		[ -r "${f}" ] || continue
 
-		overrides="$(/usr/bin/awk -F= 'BEGIN { ORS=" " } $1 ~ /^(security\.mac\.portacl\.|net\.inet\.ip\.portrange\.reserved)/ { print $1 }' "${f}")"
+		overrides="$(awk -F= '
+			BEGIN { ORS=" " } 
+			$1 ~ /^(security\.mac\.portacl\.|net\.inet\.ip\.portrange\.reserved)/ {
+				print $1
+			}
+		' "${f}")"
 
 		for oid in $overrides
 		do
