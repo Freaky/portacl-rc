@@ -171,10 +171,10 @@ portacl_check_sysctl_conf()
 	done
 }
 
-# Filter argument to return only valid rules and warn on errors
+# Filter out invalid rules and warn on stderr
 validate_ruleset()
 {
-	echo -n "${1}" | awk '
+	awk '
 		BEGIN { RS=","; FS=":"; sep = "" }
 		{
 			if (NF == 4 &&
@@ -194,15 +194,13 @@ validate_ruleset()
 
 portacl_start()
 {
-	local rules="$(generate_ruleset | sort -ut : | paste -s -d ',' -)"
+	local rules="$(generate_ruleset | sort -ut : | tr '\n' , | validate_ruleset)"
 	local port_high="$(integer_or_default portacl_port_high 1023)"
 	local suser_exempt=1
 	local autoport_exempt=1
 
 	checkyesno portacl_suser_exempt || suser_exempt=0
 	checkyesno portacl_autoport_exempt || autoport_exempt=0
-
-	rules=$(validate_ruleset "${rules}")
 
 	${SYSCTL} security.mac.portacl.rules="${rules}" >/dev/null &&
 	${SYSCTL} security.mac.portacl.suser_exempt="${suser_exempt}" >/dev/null &&
