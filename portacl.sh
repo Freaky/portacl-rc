@@ -27,7 +27,30 @@ required_modules="mac_portacl"
 : "${portacl_groups:=""}"
 : "${portacl_additional_rules:=""}"
 
-# If the value is numeric, echo it and return true
+# convert the checkyesno return value to a literal 1 or 0
+# we could do with inverting the fallback to assume-yes
+checkyesno_integer()
+{
+	if checkyesno "${1}"; then
+		echo 1
+	else
+		echo 0
+	fi
+}
+
+# echo the value of the variable if it is numeric
+# or print a warning and echo the value of the second argument
+integer_or_default()
+{
+	local value
+
+	eval "value=\$${1}"
+	echo_numeric "${value}" && return 0
+	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
+	echo "${2}"
+}
+
+# If the value is numeric, echo it, else return failure
 echo_numeric()
 {
 	case "${1}" in
@@ -49,11 +72,6 @@ split_comma()
 	do
 		echo "${rule}"
 	done
-}
-
-join_uniq()
-{
-	sort -ut : | paste -s -d ',' -
 }
 
 resolve_port()
@@ -166,36 +184,13 @@ warn_sysctl_overrides()
 	done
 }
 
-# convert the checkyesno return value to a literal 1 or 0
-# we could do with inverting the fallback to assume-yes
-checkyesno_integer()
-{
-	if checkyesno "${1}"; then
-		echo 1
-	else
-		echo 0
-	fi
-}
-
-# echo the value of the variable if it is numeric
-# or print a warning and echo the value of the second argument
-integer_or_default()
-{
-	local value
-
-	eval "value=\$${1}"
-	echo_numeric "${value}" && return 0
-	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
-	echo "${2}"
-}
-
 portacl_start()
 {
 	local rules port_high suser_exempt autoport_exempt
 
 	warn_sysctl_overrides
 
-	rules="$(generate_ruleset | join_uniq)"
+	rules="$(generate_ruleset | sort -ut : | paste -s -d ',' -)"
 	port_high="$(integer_or_default portacl_port_high 1023)"
 	suser_exempt="$(checkyesno_integer "portacl_suser_exempt")"
 	autoport_exempt="$(checkyesno_integer "portacl_autoport_exempt")"
