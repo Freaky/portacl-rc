@@ -178,17 +178,6 @@ warn_sysctl_overrides()
 	done
 }
 
-set_sysctl()
-{
-	debug "set_sysctl: ${1}=${2}"
-
-	if ! sysctl "${1}=${2}" >/dev/null; then
-		warn "failed to set sysctl ${1}"
-		return 1
-	fi
-	return 0
-}
-
 # convert the checkyesno return value to a literal 1 or 0
 # we could do with inverting the fallback to assume-yes
 checkyesno_integer()
@@ -208,36 +197,35 @@ integer_or_default()
 
 	eval "value=\$${1}"
 	echo_numeric "${value}" && return 0
-	warn "\$${1} is not set properly, reverting to default ${2} - see rc.conf(5)"
+	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
 	echo "${2}"
 }
 
 portacl_start()
 {
-	local rules port_high
+	local rules port_high suser_exempt autoport_exempt
 
 	warn_sysctl_overrides
 
 	rules="$(generate_ruleset | join_uniq)"
-
 	port_high="$(integer_or_default portacl_port_high 1023)"
+	suser_exempt="$(checkyesno_integer "portacl_suser_exempt")"
+	autoport_exempt="$(checkyesno_integer "portacl_autoport_exempt")"
 
-	set_sysctl security.mac.portacl.rules "${rules}" &&
-	set_sysctl security.mac.portacl.suser_exempt \
-		"$(checkyesno_integer "portacl_suser_exempt")" &&
-	set_sysctl security.mac.portacl.autoport_exempt \
-		"$(checkyesno_integer "portacl_autoport_exempt")" &&
-	set_sysctl security.mac.portacl.port_high "${port_high}" &&
-	set_sysctl security.mac.portacl.enabled 1 &&
-	set_sysctl net.inet.ip.portrange.reservedlow 0 &&
-	set_sysctl net.inet.ip.portrange.reservedhigh 0
+	${SYSCTL} security.mac.portacl.rules="${rules}" >/dev/null &&
+	${SYSCTL} security.mac.portacl.suser_exempt="${suser_exempt}" >/dev/null &&
+	${SYSCTL} security.mac.portacl.autoport_exempt="${autoport_exempt}" >/dev/null &&
+	${SYSCTL} security.mac.portacl.port_high="${port_high}" >/dev/null &&
+	${SYSCTL} security.mac.portacl.enabled=1 >/dev/null &&
+	${SYSCTL} net.inet.ip.portrange.reservedlow=0 >/dev/null &&
+	${SYSCTL} net.inet.ip.portrange.reservedhigh=0 >/dev/null
 }
 
 portacl_stop()
 {
-	set_sysctl net.inet.ip.portrange.reservedlow 0 &&
-	set_sysctl net.inet.ip.portrange.reservedhigh 1023 &&
-	set_sysctl security.mac.portacl.enabled 0
+	${SYSCTL} net.inet.ip.portrange.reservedlow=0 >/dev/null &&
+	${SYSCTL} net.inet.ip.portrange.reservedhigh=1023 >/dev/null &&
+	${SYSCTL} security.mac.portacl.enabled=0 >/dev/null
 }
 
 load_rc_config $name
