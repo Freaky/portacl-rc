@@ -99,7 +99,7 @@ resolve_id() {
 
 	echo_numeric "${id}" && return
 
-	lookup=$(/usr/bin/id "${flag}" "${id}" 2>/dev/null)
+	lookup=$(${ID} "${flag}" "${id}" 2>/dev/null)
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown ${kind} ${id}"
