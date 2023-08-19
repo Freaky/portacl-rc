@@ -12,12 +12,13 @@
 name="portacl"
 desc="Network port access control policy"
 rcvar="portacl_enable"
-extra_commands="reload"
+extra_commands="reload printrules"
 start_precmd="portacl_check_sysctl_conf"
 start_cmd="portacl_start"
 restart_cmd="portacl_start"
 reload_cmd="portacl_start"
 stop_cmd="portacl_stop"
+printrules_cmd="portacl_printrules"
 required_modules="mac_portacl"
 
 : "${portacl_enable:="NO"}"
@@ -28,20 +29,8 @@ required_modules="mac_portacl"
 : "${portacl_groups:=""}"
 : "${portacl_additional_rules:=""}"
 
-# echo the value of the variable if it is numeric
-# or print a warning and echo the value of the second argument
-integer_or_default()
-{
-	local value
-
-	eval "value=\$${1}"
-	echo_numeric "${value}" && return 0
-	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
-	echo "${2}"
-}
-
 # If the value is numeric, echo it, else return failure
-echo_numeric()
+echo_integer()
 {
 	case "${1}" in
 	''|*[!0-9]*)
@@ -54,6 +43,19 @@ echo_numeric()
 	esac
 }
 
+# echo the value of the variable if it is a positive integer
+# or print a warning and echo the value of the second argument
+integer_or_default()
+{
+	local value
+
+	eval "value=\$${1}"
+	echo_integer "${value}" && return 0
+	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
+	echo "${2}"
+}
+
+# Split the argument on commas
 split_comma()
 {
 	local rule
@@ -71,7 +73,7 @@ resolve_port()
 	local port="$1"
 	local proto="$2"
 
-	echo_numeric "${port}" && return
+	echo_integer "${port}" && return
 
 	case "${port}" in
 	''|*[!a-z0-9_-]*)
@@ -104,7 +106,7 @@ resolve_id() {
 
 	[ "${kind}" = "group" ] && flag="-g"
 
-	echo_numeric "${id}" && return
+	echo_integer "${id}" && return
 
 	lookup=$(${ID} "${flag}" "${id}" 2>/dev/null)
 
@@ -116,7 +118,7 @@ resolve_id() {
 	echo "${lookup}"
 }
 
-generate_ruleset_for()
+list_rules_for()
 {
 	local id ids port ports proto rules sid
 	local kind="$1"
@@ -142,11 +144,45 @@ generate_ruleset_for()
 	done
 }
 
-generate_ruleset()
+# list all rules, one per line
+list_rules()
 {
-	generate_ruleset_for user
-	generate_ruleset_for group
+	list_rules_for user
+	list_rules_for group
 	[ -n "${portacl_additional_rules}" ] && split_comma "${portacl_additional_rules}"
+}
+
+# generate a complete, validated ruleset ready for mac_portacl
+generate_rules()
+{
+	list_rules | sort -ut : | tr '\n' , | validate_rules
+}
+
+# Filter out invalid rules and warn on stderr
+validate_rules()
+{
+	awk '
+		BEGIN { RS=","; FS=":"; sep = "" }
+		{
+			if (NF == 4 &&
+			    ($1 ~ /^(uid|gid)$/) &&
+			    ($2 ~ /^[0-9]+$/ && $2 >= 0 && $2 <= 65535) &&
+			    ($3 ~ /^(tcp|udp)$/) &&
+			    ($4 ~ /^[0-9]+$/ && $4 >= 0 && $4 <= 65535)) 
+			{
+				printf("%s%s", sep, $0)
+				sep=","
+			} else {
+				printf("WARNING: Invalid portacl rule: %s\n", $0) > "/dev/stderr"
+			}
+		}
+	'
+}
+
+portacl_printrules()
+{
+	generate_rules
+	echo
 }
 
 portacl_check_sysctl_conf()
@@ -171,30 +207,9 @@ portacl_check_sysctl_conf()
 	done
 }
 
-# Filter out invalid rules and warn on stderr
-validate_ruleset()
-{
-	awk '
-		BEGIN { RS=","; FS=":"; sep = "" }
-		{
-			if (NF == 4 &&
-			    ($1 ~ /^(uid|gid)$/) &&
-			    ($2 ~ /^[0-9]+$/ && $2 >= 0 && $2 <= 65535) &&
-			    ($3 ~ /^(tcp|udp)$/) &&
-			    ($4 ~ /^[0-9]+$/ && $4 >= 0 && $4 <= 65535)) 
-			{
-				printf("%s%s", sep, $0)
-				sep=","
-			} else {
-				printf("WARNING: Invalid portacl rule: %s\n", $0) > "/dev/stderr"
-			}
-		}
-	'
-}
-
 portacl_start()
 {
-	local rules="$(generate_ruleset | sort -ut : | tr '\n' , | validate_ruleset)"
+	local rules="$(generate_rules)"
 	local port_high="$(integer_or_default portacl_port_high 1023)"
 	local suser_exempt=1
 	local autoport_exempt=1
