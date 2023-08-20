@@ -68,11 +68,27 @@ resolve_port()
 		;;
 	esac
 
-	lookup=$(awk -F'[/[:space:]]+' "
-		/^${port}[\t ]+([0-9]+)\/${proto}/ {
-			print \$2
-			exit 0 
-		}" /etc/services)
+	lookup=$(awk -v service="${port}" -v proto="${proto}" '
+		BEGIN {
+			FS = "[ \t]+|/"
+			found = 0
+		}
+		{
+			sub(/#.*/, "", $0)
+		}
+		$1 == service && $3 == proto { found = 1 }
+		$3 == proto && NF > 3 {
+			for (i = 4; i <= NF; i++) {
+				if ($i == service) {
+					found = 1
+					break
+				}
+			}
+		}
+		found == 1 {
+			print $2
+			exit
+		}' /etc/services)
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown service ${port}"
