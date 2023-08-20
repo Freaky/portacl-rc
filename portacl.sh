@@ -150,7 +150,7 @@ generate_rules()
 validate_rules()
 {
 	awk '
-		BEGIN { RS=","; FS=":"; sep = ""; len=-1 }
+		BEGIN { RS = ","; FS = ":"; sep = ""; len = -1; ret = 0 }
 		{
 			newlen=len + length($0) + 1
 			if (newlen > 1023) {
@@ -163,12 +163,16 @@ validate_rules()
 			    ($3 ~ /^(tcp|udp)$/) &&
 			    ($4 ~ /^[0-9]+$/ && $4 >= 0 && $4 <= 65535)) 
 			{
-				len=newlen
 				printf("%s%s", sep, $0)
-				sep=","
+				sep = ","
+				len = newlen
 			} else {
 				print "WARNING: Invalid portacl rule:", $0 > "/dev/stderr"
+				ret = 1
 			}
+		}
+		END {
+			exit ret
 		}
 	'
 }
@@ -203,10 +207,14 @@ portacl_check_sysctl_conf()
 
 portacl_start()
 {
-	local rules="$(generate_rules)"
+	local rules
 	local port_high=1023
 	local suser_exempt=1
 	local autoport_exempt=1
+
+	if ! rules="$(generate_rules)"; then
+		warn "errors in ruleset skipped"
+	fi
 
 	if is_integer "${portacl_port_high}"; then
 		port_high="${portacl_port_high}"
