@@ -98,20 +98,20 @@ resolve_port()
 	echo "${lookup}"
 }
 
-resolve_id() {
+lookup_id() {
 	local lookup
 	local kind="$1"
-	local id="$2"
+	local ident="$2"
 	local flag="-u"
 
 	[ "${kind}" = "group" ] && flag="-g"
 
-	echo_integer "${id}" && return
+	echo_integer "${ident}" && return
 
-	lookup=$(${ID} "${flag}" "${id}" 2>/dev/null)
+	lookup=$(${ID} "${flag}" "${ident}" 2>/dev/null)
 
 	if [ -z "${lookup}" ]; then
-		warn "unknown ${kind} ${id}"
+		warn "unknown ${kind} ${ident}"
 		return
 	fi
 
@@ -120,21 +120,21 @@ resolve_id() {
 
 list_rules_for()
 {
-	local id ids port ports proto rules sid
+	local id ident ident_list port port_list proto
 	local kind="$1"
 	local key="uid"
 
 	[ "${kind}" = "group" ] && key="gid"
 
-	eval ids="\${${name}_${kind}s}"
-	for sid in ${ids}
+	eval ident_list="\${${name}_${kind}s}"
+	for ident in ${ident_list}
 	do
 		for proto in tcp udp
 		do
-			eval ports="\${${name}_${kind}_${sid}_${proto}}"
-			id=$(resolve_id "${kind}" "${sid}")
+			eval port_list="\${${name}_${kind}_${ident}_${proto}}"
+			id=$(lookup_id "${kind}" "${ident}")
 			[ -z "${id}" ] && continue
-			for port in ${ports}
+			for port in ${port_list}
 			do
 				port=$(resolve_port "${port}" "${proto}")
 				[ -z "${port}" ] && continue
