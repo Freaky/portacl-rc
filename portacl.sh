@@ -66,8 +66,6 @@ resolve_port()
 		warn "invalid service name: ${port}"
 		return 1
 		;;
-	*)
-		;;
 	esac
 
 	lookup=$(awk -F'[/[:space:]]+' "
