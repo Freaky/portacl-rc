@@ -29,30 +29,13 @@ required_modules="mac_portacl"
 : "${portacl_groups:=""}"
 : "${portacl_additional_rules:=""}"
 
-# If the value is numeric, echo it, else return failure
-echo_integer()
+is_integer()
 {
 	case "${1}" in
 	''|*[!0-9]*)
 		return 1
 		;;
-	*)
-		echo "${1}"
-		return 0
-		;;
 	esac
-}
-
-# echo the value of the variable if it is a positive integer
-# or print a warning and echo the value of the second argument
-integer_or_default()
-{
-	local value
-
-	eval "value=\$${1}"
-	echo_integer "${value}" && return 0
-	warn "\$${1} is not set properly, using default ${2} - see rc.conf(5)"
-	echo "${2}"
 }
 
 # Split the argument on commas
@@ -73,7 +56,10 @@ resolve_port()
 	local port="$1"
 	local proto="$2"
 
-	echo_integer "${port}" && return
+	if is_integer "${port}"; then
+		echo "${port}"
+		return 0
+	fi
 
 	case "${port}" in
 	''|*[!a-z0-9_-]*)
@@ -198,9 +184,15 @@ portacl_check_sysctl_conf()
 portacl_start()
 {
 	local rules="$(generate_rules)"
-	local port_high="$(integer_or_default portacl_port_high 1023)"
+	local port_high=1023
 	local suser_exempt=1
 	local autoport_exempt=1
+
+	if is_integer "${portacl_port_high}"; then
+		port_high="${portacl_port_high}"
+	else
+		warn "\$portacl_port_high is not set properly - see rc.conf(5)"
+	fi
 
 	checkyesno portacl_suser_exempt || suser_exempt=0
 	checkyesno portacl_autoport_exempt || autoport_exempt=0
