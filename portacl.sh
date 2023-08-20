@@ -134,18 +134,24 @@ generate_rules()
 validate_rules()
 {
 	awk '
-		BEGIN { RS=","; FS=":"; sep = "" }
+		BEGIN { RS=","; FS=":"; sep = ""; len=-1 }
 		{
+			newlen=len + length($0) + 1
+			if (newlen > 1023) {
+				print "WARNING: reached portacl rule limit of 1023 bytes" > "/dev/stderr"
+				exit 1
+			}
 			if (NF == 4 &&
 			    ($1 ~ /^(uid|gid)$/) &&
 			    ($2 ~ /^[0-9]+$/ && $2 >= 0 && $2 <= 65535) &&
 			    ($3 ~ /^(tcp|udp)$/) &&
 			    ($4 ~ /^[0-9]+$/ && $4 >= 0 && $4 <= 65535)) 
 			{
+				len=newlen
 				printf("%s%s", sep, $0)
 				sep=","
 			} else {
-				printf("WARNING: Invalid portacl rule: %s\n", $0) > "/dev/stderr"
+				print "WARNING: Invalid portacl rule: %s\n", $0 > "/dev/stderr"
 			}
 		}
 	'
