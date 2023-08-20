@@ -151,7 +151,7 @@ validate_rules()
 				printf("%s%s", sep, $0)
 				sep=","
 			} else {
-				print "WARNING: Invalid portacl rule: %s\n", $0 > "/dev/stderr"
+				print "WARNING: Invalid portacl rule: %s", $0 > "/dev/stderr"
 			}
 		}
 	'
