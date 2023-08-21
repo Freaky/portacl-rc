@@ -223,6 +223,7 @@ portacl_start()
 	checkyesno portacl_suser_exempt || suser_exempt=0
 	checkyesno portacl_autoport_exempt || autoport_exempt=0
 
+	check_startmsgs && echo "Configuring MAC portacl policy."
 	${SYSCTL} security.mac.portacl.rules="${rules}" >/dev/null &&
 	${SYSCTL} security.mac.portacl.suser_exempt="${suser_exempt}" >/dev/null &&
 	${SYSCTL} security.mac.portacl.autoport_exempt="${autoport_exempt}" >/dev/null &&
@@ -234,6 +235,7 @@ portacl_start()
 
 portacl_stop()
 {
+	check_startmsgs && echo "Disabling MAC portacl policy."
 	${SYSCTL} net.inet.ip.portrange.reservedlow=0 >/dev/null &&
 	${SYSCTL} net.inet.ip.portrange.reservedhigh=1023 >/dev/null &&
 	${SYSCTL} security.mac.portacl.enabled=0 >/dev/null
