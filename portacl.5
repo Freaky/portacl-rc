@@ -1,0 +1,131 @@
+.\" Copyright (c) 1995
+.\"	Jordan K. Hubbard
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" $FreeBSD$
+.\"
+.Dd August 21, 2023
+.Dt PORTACL 5
+.Os
+.Sh NAME
+.Nm portacl
+.Nd
+.Xr rc 8
+script for
+.Xr mac_portacl 4
+.Sh DESCRIPTION
+.Nm
+is an
+.Xr rc 8
+initialization script for
+.Xr mac_portacl 4 ,
+allowing administrators to limit or permit binding to local UDP and TCP ports
+that would otherwise be privileged to the superuser.
+.Pp
+Configuration is via the following
+.Xr rc.conf 5
+variables.
+.Bl -tag -width indent-two
+.It Va portacl_enable
+.Pq Vt bool
+Set to
+.Dq Li YES
+to load and enable the
+.Xr mac_portacl 4
+module upon system initialization.
+.It Va portacl_ Ns Ao Ar users|groups Ac
+.Pq Vt str
+A space-delimited list of user and group names or numeric IDs to apply
+.Xr mac_portacl 4
+rules for, using the associated
+.Va portacl_ Ns Ao Ar user|group Ac Ns _ Ns Ao Ar ident Ac Ns _ Ns Ao Ar tcp|udp Ac
+variables.
+.It Va portacl_ Ns Ao Ar user|group Ac Ns _ Ns Ao Ar ident Ac Ns _ Ns Ao Ar tcp|udp Ac
+.Pq Vt str
+A space-delimited list of service names or port numbers to add to the
+.Xr mac_portacl 4
+ruleset for that user or group and protocol.
+.It Va portacl_additional_rules
+.Pq Vt str
+A comma-delimited list of raw
+.Xr mac_portacl 4
+rules to include alongside those specified above.
+.It Va portacl_port_high
+.Pq Vt int
+The highest port that should be considered privileged by
+.Xr mac_portacl 4 .
+This corresponds to the
+.Xr sysctl 8
+variable
+.Va security.mac.portacl.port_high ,
+and defaults to
+.Pa 1023 .
+Note that default privileged port restrictions will not be enforced above
+this value.
+.It Va portacl_suser_exempt
+.Pq Vt bool
+Allow the superuser to bind to all
+.Xr mac_portacl 4
+protected ports.
+This corresponds to the
+.Xr sysctl 8
+variable
+.Va security.mac.portacl.suser_exempt ,
+and defaults to
+.Pa YES .
+.It Va portacl_autoport_exempt
+.Pq Vt bool
+Allow applications to use automatic binding to port 0.
+This corresponds to the
+.Xr sysctl 8
+variable
+.Va security.mac.portacl.autoport_exempt ,
+and defaults to
+.Pa YES .
+.El
+.Sh FILES
+.Bl -tag -width ".Pa /etc/rc.conf" -compact
+.It Pa /etc/rc.conf
+.It Pa /etc/rc.conf.local
+.El
+.Sh EXAMPLES
+Use
+.Xr service 8
+and
+.Xr sysrc 8
+to permit applications running under the
+.Dq www
+user to bind TCP ports http (80) and https (443).
+.Bd -literal -offset indent
+# sysrc portacl_users="www"
+# sysrc portacl_user_www_tcp="http https"
+# service portacl enable
+# service portacl start
+.Ed
+.Sh SEE ALSO
+.Xr mac_portacl 4 ,
+.Xr rc.conf 5 ,
+.Xr service 8 ,
+.Xr sysrc 8
+.Sh AUTHORS
+.An Thomas Hurst .
