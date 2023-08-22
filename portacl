@@ -150,7 +150,7 @@ validate_rules()
 	awk '
 		BEGIN { RS = ","; FS = ":"; sep = ""; len = -1; ret = 0 }
 		{
-			newlen=len + length($0) + 1
+			newlen = len + length($0) + 1
 			if (newlen > 1023) {
 				print "WARNING: reached portacl rule limit of 1023 bytes" > "/dev/stderr"
 				exit 1
