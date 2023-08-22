@@ -189,9 +189,9 @@ portacl_check_sysctl_conf()
 	do
 		[ -r "${f}" ] || continue
 
-		overrides="$(awk -F= '
-			BEGIN { ORS=" " } 
+		overrides="$(awk '
 			$1 ~ /^(security\.mac\.portacl\.|net\.inet\.ip\.portrange\.reserved)/ {
+				gsub(/=.*/, "", $1)
 				print $1
 			}
 		' "${f}")"
