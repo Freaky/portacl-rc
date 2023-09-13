@@ -60,7 +60,7 @@ resolve_port()
 	fi
 
 	case "${port}" in
-	''|*[!a-z0-9_-]*)
+	''|*[#/]*)
 		warn "invalid service name: ${port}"
 		return 1
 		;;
