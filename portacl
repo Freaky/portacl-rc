@@ -59,34 +59,8 @@ resolve_port()
 		return 0
 	fi
 
-	case "${port}" in
-	''|*[#/]*)
-		warn "invalid service name: ${port}"
-		return 1
-		;;
-	esac
-
-	lookup=$(awk -v service="${port}" -v proto="${proto}" '
-		BEGIN {
-			FS = "[ \t]+|/"
-			found = 0
-		}
-		{
-			sub(/#.*/, "", $0)
-		}
-		$1 == service && $3 == proto { found = 1 }
-		$3 == proto && NF > 3 {
-			for (i = 4; i <= NF; i++) {
-				if ($i == service) {
-					found = 1
-					break
-				}
-			}
-		}
-		found == 1 {
-			print $2
-			exit
-		}' /etc/services)
+	lookup=$(getent services "${port}/${proto}" | cut -w -f 2)
+	lookup="${lookup%%/*}"
 
 	if [ -z "${lookup}" ]; then
 		warn "unknown service ${port}"
